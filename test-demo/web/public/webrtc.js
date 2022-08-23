@@ -25,6 +25,30 @@ var ws_conn;
 // Promise for local stream after constraints are approved by the user
 var local_stream_promise;
 
+function setConnectButtonState(value) {
+    document.getElementById("peer-connect-button").value = value;
+}
+
+function wantRemoteOfferer() {
+   return document.getElementById("remote-offerer").checked;
+}
+
+function onConnectClicked() {
+    if (document.getElementById("peer-connect-button").value == "Disconnect") {
+        resetState();
+        return;
+    }
+
+    var id = document.getElementById("peer-connect").value;
+    if (id == "") {
+        alert("Peer id must be filled out");
+        return;
+    }
+
+    ws_conn.send("SESSION " + id);
+    setConnectButtonState("Disconnect");
+}
+
 function getOurId() {
     return Math.floor(Math.random() * (9000 - 10) + 10).toString();
 }
@@ -115,41 +139,49 @@ function onServerMessage(event) {
         case "HELLO":
             setStatus("Registered with server, waiting for call");
             return;
+        case "SESSION_OK":
+            setStatus("Starting negotiation");
+            if (wantRemoteOfferer()) {
+                ws_conn.send("OFFER_REQUEST");
+                setStatus("Sent OFFER_REQUEST, waiting for offer");
+                return;
+            }
+            if (!peer_connection)
+                createCall(null).then (generateOffer);
+            return;
+        case "OFFER_REQUEST":
+            // The peer wants us to set up and then send an offer
+            if (!peer_connection)
+                createCall(null).then (generateOffer);
+            return;
         default:
             if (event.data.startsWith("ERROR")) {
                 handleIncomingError(event.data);
                 return;
             }
-	    if (event.data.startsWith("OFFER_REQUEST")) {
-	      // The peer wants us to set up and then send an offer
-              if (!peer_connection)
-                  createCall(null).then (generateOffer);
-	    }
-            else {
-                // Handle incoming JSON SDP and ICE messages
-                try {
-                    msg = JSON.parse(event.data);
-                } catch (e) {
-                    if (e instanceof SyntaxError) {
-                        handleIncomingError("Error parsing incoming JSON: " + event.data);
-                    } else {
-                        handleIncomingError("Unknown error parsing response: " + event.data);
-                    }
-                    return;
-                }
-
-                // Incoming JSON signals the beginning of a call
-                if (!peer_connection)
-                    createCall(msg);
-
-                if (msg.sdp != null) {
-                    onIncomingSDP(msg.sdp);
-                } else if (msg.ice != null) {
-                    onIncomingICE(msg.ice);
+            // Handle incoming JSON SDP and ICE messages
+            try {
+                msg = JSON.parse(event.data);
+            } catch (e) {
+                if (e instanceof SyntaxError) {
+                    handleIncomingError("Error parsing incoming JSON: " + event.data);
                 } else {
-                    handleIncomingError("Unknown incoming JSON: " + msg);
+                    handleIncomingError("Unknown error parsing response: " + event.data);
                 }
-	    }
+                return;
+            }
+
+            // Incoming JSON signals the beginning of a call
+            if (!peer_connection)
+                createCall(msg);
+
+            if (msg.sdp != null) {
+                onIncomingSDP(msg.sdp);
+            } else if (msg.ice != null) {
+                onIncomingICE(msg.ice);
+            } else {
+                handleIncomingError("Unknown incoming JSON: " + msg);
+            }
     }
 }
 
@@ -225,6 +257,7 @@ function websocketServerConnect() {
         document.getElementById("peer-id").textContent = peer_id;
         ws_conn.send('HELLO ' + peer_id);
         setStatus("Registering with server");
+        setConnectButtonState("Connect");
     });
     ws_conn.addEventListener('error', onServerError);
     ws_conn.addEventListener('message', onServerMessage);
@@ -303,17 +336,18 @@ function createCall(msg) {
     }
 
     peer_connection.onicecandidate = (event) => {
-	// We have a candidate, send it to the remote party with the
-	// same uuid
-	if (event.candidate == null) {
-            console.log("ICE Candidate was null, done");
-            return;
-	}
-	ws_conn.send(JSON.stringify({'ice': event.candidate}));
+        // We have a candidate, send it to the remote party with the
+        // same uuid
+        if (event.candidate == null) {
+                console.log("ICE Candidate was null, done");
+                return;
+        }
+        ws_conn.send(JSON.stringify({'ice': event.candidate}));
     };
 
     if (msg != null)
         setStatus("Created peer connection for call, waiting for SDP");
 
+    setConnectButtonState("Disconnect");
     return local_stream_promise;
 }

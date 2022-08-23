@@ -135,3 +135,10 @@ $ gcc mp-webrtc-sendrecv.c $(pkg-config --cflags --libs gstreamer-webrtc-1.0 gst
 
 * Server mixes media from all participants
 * Participant sends 1 stream, receives 1 stream
+
+### test-demo
+* Use for testing webrtc between jetsonano (with csi camera) and web. You can read README.md in the folder how to setup
+
+### test-simple
+* Webrtc simple example from WebRTC Crash Course (Hussein Nasser) https://www.youtube.com/watch?v=FExZvpVvYxA
+
