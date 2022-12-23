@@ -231,8 +231,8 @@ class WebRTCSimpleServer(object):
             chain_pem = os.path.join(self.cert_path, 'fullchain.pem')
             key_pem = os.path.join(self.cert_path, 'privkey.pem')
         else:
-            chain_pem = os.path.join(self.cert_path, 'mydomain.example.crt')
-            key_pem = os.path.join(self.cert_path, 'mydomain.example.key')
+            chain_pem = os.path.join(self.cert_path, 'fibowebrtc.com.crt')
+            key_pem = os.path.join(self.cert_path, 'fibowebrtc.com.key')
         return chain_pem, key_pem
 
     def get_ssl_ctx(self):
